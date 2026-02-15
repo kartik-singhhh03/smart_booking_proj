@@ -45,27 +45,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-10">
-      {/* Background Decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-10 relative">
+      {/* Decorative blurs */}
+      <div className="absolute top-20 -left-20 w-72 h-72 bg-accent/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 -right-20 w-72 h-72 bg-accent-dark/15 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md animate-fade-in">
-        <div className="glass-card rounded-3xl p-8 sm:p-10 space-y-8">
+      <div className="w-full max-w-md animate-fade-up">
+        <div className="card-elevated p-8 sm:p-10 space-y-8">
           {/* Header */}
           <div className="text-center space-y-4">
             <div className="flex justify-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-500/30 glow">
-                <Bookmark className="w-10 h-10 text-white" />
+              <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center shadow-sage-lg">
+                <Bookmark className="w-10 h-10 text-card-elevated" />
               </div>
             </div>
             <div>
               <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
-                Smart<span className="gradient-text">Bookmark</span>
+                Smart<span className="font-serif italic text-primary-muted">Bookmark</span>
               </h1>
-              <p className="text-muted-foreground mt-2">
+              <p className="text-muted mt-2 text-sm">
                 Save and organize your links with real-time sync
               </p>
             </div>
@@ -73,19 +71,19 @@ export default function LoginPage() {
 
           {/* Features */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/50">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-medium text-foreground">Realtime Sync</span>
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-background-secondary border border-border-light">
+              <Zap className="w-4 h-4 text-accent-dark" />
+              <span className="text-xs font-semibold text-foreground">Realtime Sync</span>
             </div>
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/50">
-              <Shield className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs font-medium text-foreground">Secure & Private</span>
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-background-secondary border border-border-light">
+              <Shield className="w-4 h-4 text-success" />
+              <span className="text-xs font-semibold text-foreground">Secure & Private</span>
             </div>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm font-medium text-center animate-scale-in">
+            <div className="p-3.5 bg-destructive-bg border border-destructive/30 rounded-xl text-destructive text-sm font-medium text-center animate-scale-in">
               {error}
             </div>
           )}
@@ -95,7 +93,7 @@ export default function LoginPage() {
             id="google-signin-button"
             onClick={handleGoogleSignIn}
             disabled={signingIn}
-            className="w-full px-6 py-3.5 bg-card border-2 border-border hover:border-primary/50 text-foreground font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-3 group hover:shadow-lg hover:shadow-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-6 py-4 bg-card border-2 border-border hover:border-primary-muted text-foreground font-semibold rounded-2xl transition-all duration-200 flex items-center justify-center gap-3 group hover:shadow-sage-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {signingIn ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -116,8 +114,8 @@ export default function LoginPage() {
           </button>
 
           {/* Info */}
-          <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+          <div className="pt-4 border-t border-border-light">
+            <p className="text-xs text-muted text-center leading-relaxed">
               We only support Google authentication for security and simplicity.
               Your bookmarks are private and secured with Row Level Security.
             </p>
@@ -125,7 +123,7 @@ export default function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-muted-foreground/60 text-xs mt-6">
+        <p className="text-center text-muted-light text-xs mt-6">
           By signing in, you agree to our Terms of Service and Privacy Policy
         </p>
       </div>

@@ -1,41 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 export default function ThemeToggle() {
     const [dark, setDark] = useState(false);
-    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
-        const stored = localStorage.getItem('theme');
+        const saved = localStorage.getItem('theme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const isDark = stored === 'dark' || (!stored && prefersDark);
+        const isDark = saved === 'dark' || (!saved && prefersDark);
         setDark(isDark);
         document.documentElement.classList.toggle('dark', isDark);
     }, []);
 
     const toggle = () => {
-        const newDark = !dark;
-        setDark(newDark);
-        document.documentElement.classList.toggle('dark', newDark);
-        localStorage.setItem('theme', newDark ? 'dark' : 'light');
+        const next = !dark;
+        setDark(next);
+        document.documentElement.classList.toggle('dark', next);
+        localStorage.setItem('theme', next ? 'dark' : 'light');
     };
-
-    if (!mounted) return null;
 
     return (
         <button
-            id="theme-toggle"
             onClick={toggle}
-            className="relative w-10 h-10 rounded-xl bg-muted hover:bg-accent/10 flex items-center justify-center transition-all duration-300 group"
-            aria-label="Toggle dark mode"
+            className="w-9 h-9 rounded-full bg-card border border-border-light flex items-center justify-center hover:bg-card-hover transition-all duration-200 hover:scale-105"
+            aria-label="Toggle theme"
         >
             {dark ? (
-                <Sun className="w-[18px] h-[18px] text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
+                <Sun className="w-4 h-4 text-accent" />
             ) : (
-                <Moon className="w-[18px] h-[18px] text-indigo-600 group-hover:-rotate-12 transition-transform duration-300" />
+                <Moon className="w-4 h-4 text-primary-muted" />
             )}
         </button>
     );

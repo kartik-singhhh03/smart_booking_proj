@@ -1,95 +1,65 @@
 'use client';
 
-import { useCallback, useState, useMemo } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { Bookmark } from '@/lib/supabaseClient';
-import { Trash2, ExternalLink, Globe } from 'lucide-react';
+import { Bookmark } from '@/lib/supabaseClient';
 import { useToast } from './Toast';
+import { Trash2, ExternalLink, Globe } from 'lucide-react';
 
 interface BookmarkItemProps {
   bookmark: Bookmark;
-  onDeleted?: () => void;
 }
 
-export default function BookmarkItem({ bookmark, onDeleted }: BookmarkItemProps) {
+export default function BookmarkItem({ bookmark }: BookmarkItemProps) {
   const [deleting, setDeleting] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [faviconError, setFaviconError] = useState(false);
   const { toast } = useToast();
 
-  const faviconUrl = useMemo(() => {
-    try {
-      const parsed = new URL(bookmark.url);
-      return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=32`;
-    } catch {
-      return null;
-    }
-  }, [bookmark.url]);
-
-  const hostname = useMemo(() => {
+  const hostname = (() => {
     try {
       return new URL(bookmark.url).hostname.replace('www.', '');
     } catch {
       return bookmark.url;
     }
-  }, [bookmark.url]);
+  })();
 
-  const formatRelativeTime = useCallback((dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (seconds < 60) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
+  const timeAgo = (() => {
+    const diff = Date.now() - new Date(bookmark.created_at).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 4) return `${weeks}w ago`;
-    return date.toLocaleDateString();
-  }, []);
+    return `${days}d ago`;
+  })();
 
   const handleDelete = async () => {
     setDeleting(true);
-
-    try {
-      const { error } = await supabase
-        .from('bookmarks')
-        .delete()
-        .eq('id', bookmark.id);
-
-      if (error) {
-        console.error('Error deleting bookmark:', error);
-        toast('Failed to delete bookmark', 'error');
-        return;
-      }
-
-      toast('Bookmark deleted', 'info');
-      onDeleted?.();
-    } catch (error) {
-      console.error('Error:', error);
-      toast('An unexpected error occurred', 'error');
-    } finally {
+    const { error } = await supabase.from('bookmarks').delete().eq('id', bookmark.id);
+    if (error) {
+      toast('Failed to delete bookmark', 'error');
       setDeleting(false);
+    } else {
+      toast('Bookmark removed', 'info');
     }
   };
 
+  const faviconUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+
   return (
-    <div className="glass-card rounded-xl hover:border-primary/20 transition-all duration-300 p-4 flex items-center gap-4 group animate-fade-in">
+    <div className="group card-sage p-4 sm:p-5 flex items-start gap-4">
       {/* Favicon */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-        {faviconUrl && !imgError ? (
+      <div className="w-10 h-10 rounded-xl bg-background-secondary flex items-center justify-center flex-shrink-0 border border-border-light">
+        {faviconError ? (
+          <Globe className="w-4.5 h-4.5 text-muted" />
+        ) : (
           <img
             src={faviconUrl}
             alt=""
-            width={20}
-            height={20}
-            className="w-5 h-5"
-            onError={() => setImgError(true)}
+            className="w-5 h-5 rounded-sm"
+            onError={() => setFaviconError(true)}
           />
-        ) : (
-          <Globe className="w-5 h-5 text-muted-foreground" />
         )}
       </div>
 
@@ -99,35 +69,27 @@ export default function BookmarkItem({ bookmark, onDeleted }: BookmarkItemProps)
           href={bookmark.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block group/link"
+          className="group/link flex items-center gap-1.5"
         >
-          <h3 className="font-semibold text-foreground group-hover/link:text-primary transition-colors duration-200 truncate flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground truncate group-hover/link:text-primary-muted transition-colors">
             {bookmark.title}
-            <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover/link:opacity-100 transition-opacity duration-200 flex-shrink-0" />
           </h3>
+          <ExternalLink className="w-3 h-3 text-muted-light opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0" />
         </a>
         <div className="flex items-center gap-2 mt-1">
-          <p className="text-xs text-muted-foreground truncate">{hostname}</p>
-          <span className="text-muted-foreground/40">·</span>
-          <p className="text-xs text-muted-foreground/70 flex-shrink-0">
-            {formatRelativeTime(bookmark.created_at)}
-          </p>
+          <span className="text-xs text-muted truncate">{hostname}</span>
+          <span className="text-xs text-muted-light">·</span>
+          <span className="text-xs text-muted-light">{timeAgo}</span>
         </div>
       </div>
 
       {/* Delete */}
       <button
-        id={`delete-bookmark-${bookmark.id}`}
         onClick={handleDelete}
         disabled={deleting}
-        className="flex-shrink-0 p-2 rounded-lg opacity-0 group-hover:opacity-100 bg-transparent hover:bg-destructive/10 disabled:bg-muted text-muted-foreground hover:text-destructive disabled:text-muted-foreground transition-all duration-200"
-        aria-label={`Delete ${bookmark.title}`}
+        className="opacity-0 group-hover:opacity-100 transition-all duration-200 w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-destructive hover:bg-destructive-bg flex-shrink-0"
       >
-        {deleting ? (
-          <div className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-        ) : (
-          <Trash2 className="w-4 h-4" />
-        )}
+        <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
   );

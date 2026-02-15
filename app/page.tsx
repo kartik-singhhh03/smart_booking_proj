@@ -3,79 +3,77 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { User } from '@supabase/supabase-js';
+import Navbar from '@/components/Navbar';
 import BookmarkForm from '@/components/BookmarkForm';
 import BookmarkList from '@/components/BookmarkList';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          router.push('/login');
-          return;
-        }
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Error checking auth:', error);
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
         router.push('/login');
-      } finally {
-        setLoading(false);
+        return;
       }
+      setUser(data.session.user);
+      setLoading(false);
     };
 
-    checkAuth();
+    checkSession();
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         router.push('/login');
+      } else {
+        setUser(session.user);
       }
     });
 
-    return () => {
-      data?.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [router]);
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-20">
-        <div className="glass-card rounded-2xl p-12 text-center">
-          <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
-          <p className="text-muted-foreground mt-4 text-sm">Loading...</p>
+      <>
+        <Navbar />
+        <div className="min-h-[calc(100vh-64px)] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-7 h-7 text-primary-muted animate-spin" />
+            <p className="text-sm text-muted font-medium">Loading your bookmarks...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-3 animate-fade-in">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
-            <span className="gradient-text">Save Your Links</span>
+    <>
+      <Navbar user={user} />
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        {/* Page heading */}
+        <div className="mb-8 animate-fade-up">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+            Your <span className="font-serif italic text-primary-muted">Collection</span>
           </h1>
-          <p className="text-base text-muted-foreground max-w-md mx-auto">
-            Store and organize your bookmarks with real-time sync across all your devices
+          <p className="text-muted text-sm mt-1.5">
+            Save, organize, and access your bookmarks in real-time
           </p>
         </div>
 
-        {/* Form */}
-        <BookmarkForm />
-
-        {/* List */}
-        <BookmarkList />
-      </div>
-    </div>
+        {/* Form + List */}
+        <div className="space-y-8">
+          <BookmarkForm userId={user!.id} />
+          <BookmarkList userId={user!.id} />
+        </div>
+      </main>
+    </>
   );
 }

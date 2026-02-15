@@ -1,50 +1,37 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import type { Bookmark } from '@/lib/supabaseClient';
+import { useCallback, useEffect, useState } from 'react';
+import { supabase, Bookmark } from '@/lib/supabaseClient';
 import BookmarkItem from './BookmarkItem';
-import { BookmarkIcon, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { useToast } from './Toast';
+import { Bookmark as BookmarkIcon, Loader2 } from 'lucide-react';
 
-export default function BookmarkList() {
+interface BookmarkListProps {
+  userId: string;
+}
+
+export default function BookmarkList({ userId }: BookmarkListProps) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
   const { toast } = useToast();
 
   const fetchBookmarks = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id;
-
-      if (!userId) {
-        setError('User not authenticated');
-        setLoading(false);
-        return;
-      }
-
-      const { data, error: fetchError } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (fetchError) {
-        setError(fetchError.message);
-        return;
-      }
-
+    if (error) {
+      toast('Failed to load bookmarks', 'error');
+      console.error('Fetch error:', error);
+    } else {
       setBookmarks(data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
     }
-  }, []);
+    setLoading(false);
+  }, [userId, toast]);
 
   useEffect(() => {
     fetchBookmarks();
@@ -53,12 +40,11 @@ export default function BookmarkList() {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let retryCount = 0;
     let retryTimeout: NodeJS.Timeout | null = null;
-    let userId: string | undefined;
+    let currentUserId: string | undefined;
 
     const subscribe = () => {
-      if (!userId) return;
+      if (!currentUserId) return;
 
-      // Clean up previous channel if retrying
       if (channel) {
         supabase.removeChannel(channel);
       }
@@ -74,8 +60,7 @@ export default function BookmarkList() {
           },
           (payload) => {
             const newBookmark = payload.new as Bookmark;
-            // Client-side filter by user_id
-            if (newBookmark.user_id !== userId) return;
+            if (newBookmark.user_id !== currentUserId) return;
             setBookmarks((prev) => {
               if (prev.some((b) => b.id === newBookmark.id)) return prev;
               return [newBookmark, ...prev];
@@ -98,9 +83,11 @@ export default function BookmarkList() {
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log('Realtime subscription active');
+            setIsLive(true);
             retryCount = 0;
           }
           if (status === 'CHANNEL_ERROR') {
+            setIsLive(false);
             retryCount++;
             console.warn(`Realtime error (attempt ${retryCount})`);
             if (retryCount <= 3) {
@@ -114,13 +101,12 @@ export default function BookmarkList() {
 
     const init = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
-      userId = sessionData.session?.user?.id;
-      if (userId) subscribe();
+      currentUserId = sessionData.session?.user?.id;
+      if (currentUserId) subscribe();
     };
 
     init();
 
-    // Cleanup subscription on unmount
     return () => {
       if (retryTimeout) clearTimeout(retryTimeout);
       if (channel) {
@@ -129,63 +115,53 @@ export default function BookmarkList() {
     };
   }, [fetchBookmarks, toast]);
 
-  if (loading) {
-    return (
-      <div className="glass-card rounded-2xl p-12 text-center animate-fade-in">
-        <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
-        <p className="text-muted-foreground mt-4 text-sm">Loading your bookmarks...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="glass-card rounded-2xl p-6 animate-fade-in">
-        <div className="flex items-center gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-medium">Error: {error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (bookmarks.length === 0) {
-    return (
-      <div className="glass-card rounded-2xl p-12 text-center animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mx-auto mb-4">
-          <BookmarkIcon className="w-8 h-8 text-primary/60" />
-        </div>
-        <h3 className="text-lg font-semibold text-foreground mb-2">No bookmarks yet</h3>
-        <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-          Start adding bookmarks using the form above to organize your favorite links
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          Your Bookmarks
-          <span className="text-sm font-normal text-muted-foreground">
-            ({bookmarks.length})
-          </span>
-        </h2>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-          <span className="text-xs text-muted-foreground">Live</span>
+    <div className="animate-fade-up" style={{ animationDelay: '0.2s' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-lg font-bold text-foreground">Your Bookmarks</h2>
+        {isLive && (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-success bg-success-bg px-3 py-1.5 rounded-pill">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+            </span>
+            Live
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="card-elevated p-12 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-6 h-6 text-muted animate-spin" />
+          <p className="text-sm text-muted">Loading your bookmarks...</p>
         </div>
-      </div>
-      <div className="space-y-3">
-        {bookmarks.map((bookmark) => (
-          <BookmarkItem
-            key={bookmark.id}
-            bookmark={bookmark}
-          />
-        ))}
-      </div>
+      ) : bookmarks.length === 0 ? (
+        <div className="card-elevated p-12 flex flex-col items-center justify-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-accent/40 flex items-center justify-center">
+            <BookmarkIcon className="w-7 h-7 text-primary-muted" />
+          </div>
+          <div className="text-center">
+            <p className="font-semibold text-foreground">No bookmarks yet</p>
+            <p className="text-sm text-muted mt-1">
+              Start adding bookmarks using the form above to organize your favorite links
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {bookmarks.map((bookmark, i) => (
+            <div
+              key={bookmark.id}
+              className="animate-fade-up"
+              style={{ animationDelay: `${0.05 * i}s` }}
+            >
+              <BookmarkItem bookmark={bookmark} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

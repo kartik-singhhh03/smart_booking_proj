@@ -1,163 +1,114 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Plus, Link as LinkIcon, Type, Loader2 } from 'lucide-react';
 import { useToast } from './Toast';
+import { Plus, Type, Link2, Loader2 } from 'lucide-react';
 
 interface BookmarkFormProps {
-  onBookmarkAdded?: () => void;
+  userId: string;
 }
 
-export default function BookmarkForm({ onBookmarkAdded }: BookmarkFormProps) {
+export default function BookmarkForm({ userId }: BookmarkFormProps) {
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const validateUrl = (urlString: string): boolean => {
-    try {
-      const parsed = new URL(urlString);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
-    if (!title.trim()) {
-      setError('Title is required');
+    const trimmedTitle = title.trim();
+    const trimmedUrl = url.trim();
+
+    if (!trimmedTitle || !trimmedUrl) {
+      toast('Please fill in both title and URL', 'error');
       return;
     }
 
-    if (!url.trim()) {
-      setError('URL is required');
-      return;
-    }
-
-    if (!validateUrl(url)) {
-      setError('Please enter a valid URL (must start with http:// or https://)');
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      toast('URL must start with http:// or https://', 'error');
       return;
     }
 
     setLoading(true);
-
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id;
+      const { error } = await supabase.from('bookmarks').insert({
+        title: trimmedTitle,
+        url: trimmedUrl,
+        user_id: userId,
+      });
 
-      if (!userId) {
-        setError('User not authenticated');
-        return;
+      if (error) {
+        toast('Failed to add bookmark', 'error');
+        console.error('Insert error:', error);
+      } else {
+        toast('Bookmark added', 'success');
+        setTitle('');
+        setUrl('');
       }
-
-      const { error: insertError } = await supabase
-        .from('bookmarks')
-        .insert([
-          {
-            user_id: userId,
-            title: title.trim(),
-            url: url.trim(),
-          },
-        ]);
-
-      if (insertError) {
-        setError(insertError.message);
-        toast(insertError.message, 'error');
-        return;
-      }
-
-      setTitle('');
-      setUrl('');
-      toast('Bookmark added successfully!', 'success');
-      onBookmarkAdded?.();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'An error occurred';
-      setError(message);
-      toast(message, 'error');
+    } catch {
+      toast('Something went wrong', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="glass-card rounded-2xl p-6 space-y-5 animate-fade-in"
-    >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <Plus className="w-5 h-5 text-white" />
+    <div className="card-elevated p-6 sm:p-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+          <Plus className="w-5 h-5 text-card-elevated" />
         </div>
-        <h2 className="text-lg font-semibold text-foreground">Add New Bookmark</h2>
+        <h2 className="text-lg font-bold text-foreground">Add New Bookmark</h2>
       </div>
 
-      {error && (
-        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm font-medium animate-scale-in">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="bookmark-title" className="block text-sm font-medium text-muted-foreground">
-            Title
-          </label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Title */}
+        <div>
+          <label className="block text-sm font-medium text-foreground-secondary mb-1.5">Title</label>
           <div className="relative">
-            <Type className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+            <Type className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-light" />
             <input
-              id="bookmark-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., My Favorite Blog"
-              className="w-full pl-11 pr-4 py-2.5 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50 transition-all duration-200"
-              disabled={loading}
+              className="w-full pl-10 pr-4 py-3 bg-background border border-border-light rounded-xl text-foreground placeholder:text-muted-light text-sm focus:outline-none focus:border-primary-muted focus:ring-1 focus:ring-primary-muted/30 transition-all duration-200"
             />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label htmlFor="bookmark-url" className="block text-sm font-medium text-muted-foreground">
-            URL
-          </label>
+        {/* URL */}
+        <div>
+          <label className="block text-sm font-medium text-foreground-secondary mb-1.5">URL</label>
           <div className="relative">
-            <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+            <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-light" />
             <input
-              id="bookmark-url"
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="e.g., https://example.com"
-              className="w-full pl-11 pr-4 py-2.5 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50 transition-all duration-200"
-              disabled={loading}
+              className="w-full pl-10 pr-4 py-3 bg-background border border-border-light rounded-xl text-foreground placeholder:text-muted-light text-sm focus:outline-none focus:border-primary-muted focus:ring-1 focus:ring-primary-muted/30 transition-all duration-200"
             />
           </div>
         </div>
-      </div>
 
-      <button
-        id="add-bookmark-button"
-        type="submit"
-        disabled={loading}
-        className="w-full px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-muted disabled:to-muted disabled:text-muted-foreground text-white rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:shadow-none flex items-center justify-center gap-2"
-      >
-        {loading ? (
-          <>
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed !py-3.5 mt-2"
+        >
+          {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
-            Adding...
-          </>
-        ) : (
-          <>
+          ) : (
             <Plus className="w-4 h-4" />
-            Add Bookmark
-          </>
-        )}
-      </button>
-    </form>
+          )}
+          <span>{loading ? 'Adding...' : 'Add Bookmark'}</span>
+        </button>
+      </form>
+    </div>
   );
 }
